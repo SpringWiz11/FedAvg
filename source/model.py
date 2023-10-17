@@ -85,3 +85,6 @@ def test(net, testloader, device: str):
             correct += (predicted == labels).sum().item()
     accuracy = correct / len(testloader.dataset)
     return loss, accuracy
+
+def get_model(dataset: int):
+    return Net

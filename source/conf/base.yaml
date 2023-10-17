@@ -10,3 +10,14 @@ config_fit: # a config that each client will receive (this is send by the server
   lr: 0.01 # learning rate to use by the clients
   momentum: 0.9 # momentum used by SGD optimiser on the client side
   local_epochs: 1
+
+alpha: 1e-2
+beta: 1e-3
+global_epochs: 200
+local_epochs: 4
+pers_epochs: 1
+hf: 1
+validation_ratio: 0.1
+Client_num_per_node: 10
+seed: 17
+eval_while_training: 1

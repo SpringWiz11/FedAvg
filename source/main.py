@@ -7,6 +7,11 @@ import flwr as fl
 from dataset import prepare_dataset
 from client import generate_client_fn
 from server import get_on_fit_config, get_evaluate_fn
+from model import Net
+from perfedavg import PerFedAvgClient
+import torch
+
+
 # from PerfedAvg import PerFedAvg
 
 @hydra.main(config_path="conf", config_name="base", version_base=None)
@@ -48,19 +53,19 @@ def main(cfg: DictConfig):
         evaluate_fn=get_evaluate_fn(cfg.num_classes, testloader, classes_channels, classes_class, which),
     )
     elif action == 2:
-        # strategy = PerFedAvg(
-        #     alpha=0.001,  # Set your desired alpha value
-        #     beta=0.001,   # Set your desired beta value
-        #     num_clients=cfg.num_clients,  # Number of clients
-        #     global_model=None,  # You should set this to the initial global model
-        #     criterion=torch.nn.CrossEntropyLoss(),  # Change this to the appropriate loss function
-        #     batch_size=cfg.batch_size,  # Set your batch size
-        #     dataset=which,  # Set the dataset ID (1 for MNIST, 2 for CIFAR-10, 3 for CIFAR-100)
-        #     local_epochs=4,  # Set the number of local training epochs
-        #     valset_ratio=0.1,  # Set your validation set ratio
-        #     logger=rich.console.Console(),  
-        #     gpu=1,  # Set GPU flag
-        pass
+        strategy = PerFedAvgClient(
+            alpha=cfg.alpha,  # Set your desired alpha value
+            beta=cfg.beta,   # Set your desired beta value 
+            global_model=Net,  # You should set this to the initial global model
+            criterion=torch.nn.CrossEntropyLoss(),  # Change this to the appropriate loss function
+            batch_size=cfg.batch_size,  # Set your batch size
+            dataset=which,  # Set the dataset ID (1 for MNIST, 2 for CIFAR-10, 3 for CIFAR-100)
+            local_epochs=4,  # Set the number of local training epochs
+            valset_ratio=0.1,  # Set your validation set ratio
+            trainloader=trainloaders,  # Set your trainloader
+            valloader=validationloaders,  # Set your validation loader
+        )
+        
 
     history = fl.simulation.start_simulation(
         client_fn=client_fn,
@@ -71,3 +76,5 @@ def main(cfg: DictConfig):
 
 if __name__ == "__main__":
     main()
+
+
