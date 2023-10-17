@@ -4,13 +4,11 @@ import utils
 from copy import deepcopy
 from typing import Tuple, Union
 from collections import OrderedDict
-from fedlab.utils.serialization import SerializationTool
 
 
 class PerFedAvgClient:
     def __init__(
         self,
-        client_id: int,
         alpha: float,
         beta: float,
         global_model: torch.nn.Module,
@@ -19,24 +17,21 @@ class PerFedAvgClient:
         dataset: str,
         local_epochs: int,
         valset_ratio: float,
-        logger: rich.console.Console,
-        gpu: int,
+        trainloader=None,
+        valloader=None,
     ):
-        if gpu and torch.cuda.is_available():
+        if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
-        self.logger = logger
 
         self.local_epochs = local_epochs
         self.criterion = criterion
-        self.id = client_id
+
         self.model = deepcopy(global_model)
         self.alpha = alpha
         self.beta = beta
-        self.trainloader, self.valloader = get_dataloader(
-            dataset, client_id, batch_size, valset_ratio
-        )
+        self.trainloader, self.valloader = trainloader, valloader
         self.iter_trainloader = iter(self.trainloader)
 
     def get_data_batch(self):
@@ -48,33 +43,33 @@ class PerFedAvgClient:
 
         return x.to(self.device), y.to(self.device)
 
-    def train(
-        self,
-        global_model: torch.nn.Module,
-        hessian_free=False,
-        eval_while_training=False,
-    ):
-        self.model.load_state_dict(global_model.state_dict())
-        if eval_while_training:
-            loss_before, acc_before = utils.eval(
-                self.model, self.valloader, self.criterion, self.device
-            )
-        self._train(hessian_free)
+    # def train(
+    #     self,
+    #     global_model: torch.nn.Module,
+    #     hessian_free=False,
+    #     eval_while_training=False,
+    # ):
+    #     self.model.load_state_dict(global_model.state_dict())
+    #     if eval_while_training:
+    #         loss_before, acc_before = utils.eval(
+    #             self.model, self.valloader, self.criterion, self.device
+    #         )
+    #     self._train(hessian_free)
 
-        if eval_while_training:
-            loss_after, acc_after = utils.eval(
-                self.model, self.valloader, self.criterion, self.device
-            )
-            self.logger.log(
-                "client [{}] [red]loss: {:.4f} -> {:.4f}   [blue]acc: {:.2f}% -> {:.2f}%".format(
-                    self.id,
-                    loss_before,
-                    loss_after,
-                    acc_before * 100.0,
-                    acc_after * 100.0,
-                )
-            )
-        return SerializationTool.serialize_model(self.model)
+    #     if eval_while_training:
+    #         loss_after, acc_after = utils.eval(
+    #             self.model, self.valloader, self.criterion, self.device
+    #         )
+    #         self.logger.log(
+    #             "client [{}] [red]loss: {:.4f} -> {:.4f}   [blue]acc: {:.2f}% -> {:.2f}%".format(
+    #                 self.id,
+    #                 loss_before,
+    #                 loss_after,
+    #                 acc_before * 100.0,
+    #                 acc_after * 100.0,
+    #             )
+    #         )
+    #     return SerializationTool.serialize_model(self.model)
 
     def _train(self, hessian_free=False):
         if hessian_free:  # Per-FedAvg(HF)
@@ -93,7 +88,6 @@ class PerFedAvgClient:
                 grads_2nd = self.compute_grad(
                     self.model, data_batch_3, v=grads_1st, second_order_grads=True
                 )
-                # NOTE: Go check https://github.com/KarhouTam/Per-FedAvg/issues/2 if you confuse about the model update.
                 for param, grad1, grad2 in zip(
                     self.model.parameters(), grads_1st, grads_2nd
                 ):
